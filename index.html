@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oqim — Naqd pul oqimini bashorat qiling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#0E0D0B;
+    --surface:#161310;
+    --surface2:#1D1A15;
+    --line:#2A2620;
+    --ink:#EDE6D8;
+    --ink-dim:#A89E8C;
+    --muted:#6E665A;
+    --amber:#D9A441;
+    --amber-dim:#8C6F2E;
+    --amber-hover:#E5B554;
+    --amber-rgb:217,164,65;
+    --red:#C9492F;
+    --green:#5C8F6B;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--bg);color:var(--ink);font-family:'JetBrains Mono',monospace;
+    line-height:1.55;-webkit-font-smoothing:antialiased;
+  }
+  #bgPulseCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+  nav, .wrap, .bottom-strip{position:relative;z-index:1;}
+  .bottom-strip{
+    text-align:center;font-size:11px;color:var(--muted);padding:14px 20px;border-top:1px solid var(--line);
+    background:var(--bg);
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px;}
+  a{color:inherit;}
+
+  nav{display:flex;justify-content:space-between;align-items:center;padding:24px 28px;max-width:1080px;margin:0 auto;}
+  .brand{font-family:'Fraunces',serif;font-weight:600;font-size:19px;letter-spacing:-0.01em;color:var(--ink);}
+  .brand .dot{color:var(--amber);}
+  .lang-toggle{display:flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;font-size:11px;font-weight:600;}
+  .lang-toggle button{background:none;border:none;padding:6px 14px;cursor:pointer;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;}
+  .lang-toggle button.active{background:var(--amber);color:#15120D;}
+
+  .hero{padding:46px 0 30px;position:relative;}
+  .hero-ghost{
+    position:absolute;top:-10px;right:-10px;font-family:'Fraunces',serif;font-weight:600;
+    font-size:clamp(120px,18vw,220px);color:var(--amber);opacity:0.05;line-height:1;pointer-events:none;
+    user-select:none;z-index:0;letter-spacing:-0.02em;
+  }
+  .hero .eyebrow, .hero h1, .hero .sub, .hero .cta, .hero .pulse-frame{position:relative;z-index:1;}
+  @media(max-width:860px){.hero-ghost{display:none;}}
+  .eyebrow{font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--amber);margin-bottom:18px;font-weight:600;}
+  h1{
+    font-family:'Fraunces',serif;font-weight:500;font-size:clamp(32px,4.6vw,50px);line-height:1.1;
+    margin:0 0 20px;letter-spacing:-0.01em;color:var(--ink);max-width:680px;
+  }
+  .sub{font-size:15px;color:var(--ink-dim);max-width:540px;margin-bottom:30px;font-family:'JetBrains Mono',monospace;}
+  .cta{
+    display:inline-flex;align-items:center;gap:8px;background:var(--amber);color:#15120D;
+    padding:13px 22px;border-radius:3px;font-weight:700;text-decoration:none;font-size:13px;
+    border:none;cursor:pointer;letter-spacing:0.03em;
+  }
+  .cta:hover{background:var(--amber-hover);}
+
+  .pulse-frame{
+    background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:0;
+    height:180px;margin:36px 0 0;position:relative;overflow:hidden;
+  }
+  .pulse-frame .pulse-label{position:absolute;top:14px;left:18px;font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;z-index:2;}
+  .pulse-frame .pulse-readout{position:absolute;top:14px;right:18px;font-size:11px;color:var(--amber);z-index:2;font-weight:600;}
+  svg.pulse-svg{width:100%;height:100%;display:block;}
+  .pulse-line{
+    fill:none;stroke:var(--amber);stroke-width:1.6;stroke-dasharray:1400;stroke-dashoffset:1400;
+    animation:drawPulse 3.4s ease-out forwards, glowPulse 2.6s ease-in-out infinite 3.4s;
+    filter:drop-shadow(0 0 4px rgba(var(--amber-rgb),0.45));
+  }
+  @keyframes drawPulse{ to{ stroke-dashoffset:0; } }
+  @keyframes glowPulse{ 0%,100%{filter:drop-shadow(0 0 3px rgba(var(--amber-rgb),0.35));} 50%{filter:drop-shadow(0 0 8px rgba(var(--amber-rgb),0.65));} }
+  .pulse-grid line{stroke:var(--line);stroke-width:1;}
+
+  section{padding:54px 0;border-top:1px solid var(--line);opacity:0;transform:translateY(16px);transition:opacity .6s ease-out, transform .6s ease-out;}
+  section.visible{opacity:1;transform:translateY(0);}
+  .section-title{font-family:'Fraunces',serif;font-weight:500;font-size:25px;margin:0 0 8px;color:var(--ink);}
+  .section-desc{color:var(--ink-dim);max-width:580px;margin-bottom:30px;font-size:13.5px;}
+  .step-tag{
+    display:inline-flex;align-items:center;gap:7px;font-size:10px;letter-spacing:0.1em;color:var(--amber);text-transform:uppercase;
+    margin-bottom:10px;font-weight:700;
+  }
+  .step-tag svg{flex-shrink:0;}
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:24px;
+    transition:border-color .2s, box-shadow .2s, transform .2s;
+  }
+  .card:hover{border-color:var(--amber-dim);box-shadow:0 14px 36px -18px rgba(var(--amber-rgb),0.15);}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:11px;font-weight:600;color:var(--ink-dim);margin-bottom:6px;letter-spacing:0.04em;text-transform:uppercase;}
+  .field input{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-size:14px;
+    font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--ink);
+  }
+  .field input:focus{outline:1px solid var(--amber);outline-offset:0;border-color:var(--amber);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  @media(max-width:700px){.row3{grid-template-columns:1fr;}}
+
+  /* ===== HISTORY TABLE ===== */
+  .history-table{margin-bottom:14px;}
+  .history-head, .history-row{
+    display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:10px;align-items:center;
+  }
+  .history-head{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding:0 2px 8px;}
+  .history-row{margin-bottom:8px;}
+  .history-row input{font-size:13px;padding:8px 10px;}
+  .remove-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:17px;font-weight:700;line-height:1;padding:4px 8px;}
+  .add-row-btn{
+    background:none;border:1px dashed var(--line);color:var(--ink-dim);padding:8px 14px;border-radius:4px;
+    cursor:pointer;font-size:12px;font-weight:600;width:100%;font-family:'JetBrains Mono',monospace;
+  }
+  .add-row-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .add-row-btn:disabled{opacity:0.3;cursor:default;}
+
+  .scenario-row{display:flex;gap:8px;margin-bottom:18px;}
+  .scenario-btn{
+    flex:1;background:var(--bg);border:1px solid var(--line);color:var(--ink-dim);padding:11px 8px;
+    border-radius:4px;cursor:pointer;font-size:11.5px;font-weight:700;letter-spacing:0.03em;
+    font-family:'JetBrains Mono',monospace;text-transform:uppercase;
+  }
+  .scenario-btn.active{border-color:var(--amber);color:var(--amber);background:rgba(var(--amber-rgb),0.08);}
+
+  .btn-primary{
+    width:100%;background:var(--amber);color:#15120D;border:none;padding:13px;border-radius:4px;
+    font-weight:700;font-size:13px;cursor:pointer;margin-top:4px;letter-spacing:0.03em;font-family:'JetBrains Mono',monospace;
+  }
+  .btn-primary:hover{background:var(--amber-hover);}
+  .btn-secondary{
+    width:100%;background:none;color:var(--ink-dim);border:1px solid var(--line);padding:10px;border-radius:4px;
+    font-weight:600;font-size:12px;cursor:pointer;margin-top:8px;font-family:'JetBrains Mono',monospace;
+  }
+  .btn-secondary:hover{border-color:var(--ink-dim);color:var(--ink);}
+
+  /* ===== RESULTS ===== */
+  .results-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:24px;margin-top:8px;}
+  @media(max-width:860px){.results-grid{grid-template-columns:1fr;}}
+  .empty-state{color:var(--muted);font-size:13px;text-align:center;padding:60px 20px;border:1px dashed var(--line);border-radius:6px;}
+
+  .verdict{display:flex;align-items:baseline;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+  .verdict .big-num{font-family:'Fraunces',serif;font-weight:500;font-size:40px;line-height:1;}
+  .verdict .big-num.danger{color:var(--red);}
+  .verdict .big-num.safe{color:var(--green);}
+  .verdict .label{font-size:12px;color:var(--ink-dim);max-width:220px;}
+  .status-pill{
+    display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+    padding:5px 12px;border-radius:20px;margin-bottom:16px;
+  }
+  .status-pill.danger{background:rgba(201,73,47,0.15);color:var(--red);border:1px solid rgba(201,73,47,0.3);}
+  .status-pill.safe{background:rgba(92,143,107,0.15);color:var(--green);border:1px solid rgba(92,143,107,0.3);}
+  .status-pill.warn{background:rgba(var(--amber-rgb),0.15);color:var(--amber);border:1px solid rgba(var(--amber-rgb),0.3);}
+
+  svg.chart{width:100%;height:190px;overflow:visible;}
+  .legend{display:flex;gap:18px;margin-top:10px;font-size:11px;color:var(--ink-dim);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+  .metric-row{
+    display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);
+    font-size:12.5px;
+  }
+  .metric-row:last-child{border-bottom:none;}
+  .metric-row .m-label{color:var(--ink-dim);}
+  .metric-row .m-val{color:var(--ink);font-weight:600;}
+  .metric-row .m-val.flag{color:var(--red);}
+  .metric-row .m-val.ok{color:var(--green);}
+  .m-bar-wrap{display:flex;align-items:center;gap:8px;justify-content:flex-end;}
+  .m-bar-track{width:64px;height:5px;background:var(--line);border-radius:3px;overflow:hidden;}
+  .m-bar-fill{height:100%;border-radius:3px;transition:width .6s ease-out;}
+
+  .recs-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+  .recs-list li{
+    padding:12px 14px;background:var(--surface2);border-left:2px solid var(--amber-dim);border-radius:3px;
+    font-size:13px;color:var(--ink-dim);line-height:1.55;
+    animation:recIn .4s ease-out both;
+  }
+  @keyframes recIn{ from{opacity:0;transform:translateX(-6px);} to{opacity:1;transform:translateX(0);} }
+  .recs-list li.flag{border-left-color:var(--red);}
+  .recs-list li.ok{border-left-color:var(--green);}
+
+  /* ===== CONTACT ===== */
+  /* ===== STATEMENT UPLOAD ===== */
+  .upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px;}
+  @media(max-width:860px){.upload-grid{grid-template-columns:1fr;}}
+  .upload-slot{
+    background:var(--bg);border:1px dashed var(--line);border-radius:6px;padding:18px;text-align:center;
+    cursor:pointer;transition:border-color .15s;
+  }
+  .upload-slot:hover{border-color:var(--amber);}
+  .upload-slot.filled{border-style:solid;border-color:var(--amber-dim);}
+  .upload-slot input[type=file]{display:none;}
+  .upload-slot .u-icon{font-size:20px;color:var(--ink-dim);margin-bottom:8px;}
+  .upload-slot .u-label{font-size:11.5px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;}
+  .upload-slot .u-file{font-size:11px;color:var(--amber);word-break:break-all;}
+  .upload-slot .u-hint{font-size:10.5px;color:var(--muted);margin-top:4px;}
+
+  .extract-card{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:10px;}
+  .extract-card h4{font-family:'Fraunces',serif;font-size:14px;font-weight:600;color:var(--ink);margin:0 0 10px;}
+  .extract-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;font-size:12.5px;border-bottom:1px solid var(--line);}
+  .extract-row:last-child{border-bottom:none;}
+  .extract-row .e-label{color:var(--ink-dim);}
+  .extract-row .e-val{color:var(--amber);font-weight:600;}
+  .extract-row .e-val.missing{color:var(--muted);font-style:italic;font-weight:400;}
+  .extract-row .e-source{font-size:10px;color:var(--muted);display:block;margin-top:2px;}
+  .apply-btn{
+    background:var(--amber);color:#15120D;border:none;padding:9px 16px;border-radius:4px;font-size:12px;
+    font-weight:700;cursor:pointer;margin-top:10px;font-family:'JetBrains Mono',monospace;width:100%;
+  }
+  .apply-btn:hover{background:var(--amber-hover);}
+  .upload-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:4px;}
+
+  .contact-card{max-width:560px;}
+  .contact-note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;}
+  textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-size:14px;
+    font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--ink);resize:vertical;min-height:80px;
+  }
+  textarea:focus{outline:1px solid var(--amber);border-color:var(--amber);}
+
+  footer{padding:36px 0 60px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);}
+  .disclaimer{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7;}
+
+  .bottom-strip a{color:var(--amber-dim);text-decoration:none;}
+  .bottom-strip a:hover{color:var(--amber);text-decoration:underline;}
+
+  /* ===== CUSTOM SCROLLBAR ===== */
+  ::-webkit-scrollbar{width:9px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--amber-dim);border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--amber);}
+  html{scrollbar-color:var(--amber-dim) var(--bg);}
+
+  /* ===== BOOT SEQUENCE ===== */
+  #bootOverlay{
+    position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;
+    align-items:flex-start;justify-content:center;padding:0 0 0 8vw;font-family:'JetBrains Mono',monospace;
+    transition:opacity .5s ease-out;
+  }
+  #bootOverlay.hide{opacity:0;pointer-events:none;}
+  #bootLines{font-size:13px;color:var(--amber);line-height:1.9;}
+  #bootLines div{opacity:0;animation:bootLineIn .25s forwards;}
+  @keyframes bootLineIn{ to{opacity:1;} }
+  .boot-cursor{display:inline-block;width:7px;height:13px;background:var(--amber);margin-left:4px;animation:bootBlink 0.9s steps(1) infinite;vertical-align:-2px;}
+  @keyframes bootBlink{ 50%{opacity:0;} }
+</style>
+</head>
+<body>
+<div id="bootOverlay"><div id="bootLines"></div></div>
+<canvas id="bgPulseCanvas"></canvas>
+
+
+<nav>
+  <div class="brand">oq<span class="dot">i</span>m</div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-ghost">↗</div>
+    <div class="eyebrow" data-uz="KICHIK BIZNES UCHUN VITAL KO'RSATKICH" data-en="A VITAL SIGN FOR SMALL BUSINESS">A VITAL SIGN FOR SMALL BUSINESS</div>
+    <h1 data-uz="Naqd pulingizning yurak urishini kuzating." data-en="Watch your business's heartbeat before it stops.">Watch your business's heartbeat before it stops.</h1>
+    <p class="sub" data-uz="Oqim shunchaki kalkulyator emas — so'nggi oylardagi haqiqiy raqamlaringizdan trend chiqaradi, breakeven nuqtangizni hisoblaydi va nima qilish kerakligini aytadi."
+       data-en="Oqim isn't just a calculator — it reads the trend in your real recent numbers, calculates your break-even point, and tells you what to actually do about it.">Oqim isn't just a calculator — it reads the trend in your real recent numbers, calculates your break-even point, and tells you what to actually do about it.</p>
+    <a href="#tool" class="cta" data-uz="TAHLILNI BOSHLASH →" data-en="START THE ANALYSIS →">START THE ANALYSIS →</a>
+
+    <div class="pulse-frame">
+      <div class="pulse-label" data-uz="JORIY HOLAT" data-en="LIVE READING">LIVE READING</div>
+      <div class="pulse-readout" id="pulseReadout">45.0M UZS</div>
+      <svg class="pulse-svg" viewBox="0 0 800 180" preserveAspectRatio="none">
+        <g class="pulse-grid">
+          <line x1="0" y1="45" x2="800" y2="45"/>
+          <line x1="0" y1="90" x2="800" y2="90"/>
+          <line x1="0" y1="135" x2="800" y2="135"/>
+        </g>
+        <path class="pulse-line" d="M0,90 L40,90 L70,55 L100,120 L130,40 L160,130 L190,90 L230,90 L260,70 L290,100 L320,60 L350,95 L390,90 L430,90 L460,110 L490,75 L520,105 L550,90 L600,90 L630,65 L660,98 L700,80 L740,90 L800,90"/>
+      </svg>
+    </div>
+  </div>
+
+  <section id="tool">
+    <div class="step-tag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16 L12 4"/><path d="M6 10 L12 4 L18 10"/><path d="M4 20 L20 20"/></svg><span data-uz="0-QADAM · ULKANROQ BIZNESLAR UCHUN" data-en="STEP 0 · FOR LARGER BUSINESSES">STEP 0 · FOR LARGER BUSINESSES</span></div>
+    <div class="section-title" data-uz="Hisobotlaringizni yuklang (ixtiyoriy)" data-en="Upload your statements (optional)">Upload your statements (optional)</div>
+    <p class="section-desc" data-uz="Agar buxgalteriyangiz tayyor hisobotlarga ega bo'lsa, qo'lda kiritish o'rniga shularni yuklang. Oqim daromad, xarajat va naqd pul qoldig'ini avtomatik topishga harakat qiladi — keyin siz tasdiqlaysiz."
+       data-en="If your accounting already has these ready, upload them instead of typing everything by hand. Oqim tries to find income, expenses, and cash balance automatically — you confirm before anything is applied.">If your accounting already has these ready, upload them instead of typing everything by hand. Oqim tries to find income, expenses, and cash balance automatically — you confirm before anything is applied.</p>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="upload-grid">
+        <label class="upload-slot" id="slot-income">
+          <input type="file" id="file-income" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(this, 'income')">
+          <div class="u-icon">↑</div>
+          <div class="u-label" data-uz="Daromadlar hisoboti" data-en="Income statement">Income statement</div>
+          <div class="u-file" id="filename-income" data-uz="Fayl tanlanmagan" data-en="No file selected">No file selected</div>
+          <div class="u-hint">.csv / .xlsx</div>
+        </label>
+        <label class="upload-slot" id="slot-balance">
+          <input type="file" id="file-balance" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(this, 'balance')">
+          <div class="u-icon">↑</div>
+          <div class="u-label" data-uz="Balans hisoboti" data-en="Balance sheet">Balance sheet</div>
+          <div class="u-file" id="filename-balance" data-uz="Fayl tanlanmagan" data-en="No file selected">No file selected</div>
+          <div class="u-hint">.csv / .xlsx</div>
+        </label>
+        <label class="upload-slot" id="slot-cashflow">
+          <input type="file" id="file-cashflow" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(this, 'cashflow')">
+          <div class="u-icon">↑</div>
+          <div class="u-label" data-uz="Pul oqimi hisoboti" data-en="Cash flow statement">Cash flow statement</div>
+          <div class="u-file" id="filename-cashflow" data-uz="Fayl tanlanmagan" data-en="No file selected">No file selected</div>
+          <div class="u-hint">.csv / .xlsx</div>
+        </label>
+      </div>
+
+      <div id="extractPreview" style="display:none;">
+        <div class="extract-card" id="extractCardIncome" style="display:none;"></div>
+        <div class="extract-card" id="extractCardBalance" style="display:none;"></div>
+        <div class="extract-card" id="extractCardCashflow" style="display:none;"></div>
+        <button class="apply-btn" onclick="applyExtractedData()" data-uz="TOPILGAN QIYMATLARNI QO'LLASH" data-en="APPLY EXTRACTED VALUES">APPLY EXTRACTED VALUES</button>
+        <div class="upload-note" data-uz="Bu qiymatlar oddiy kalit so'z qidiruvi orqali topilgan — har xil formatdagi hisobotlar uchun 100% aniq emas. Qo'llashdan oldin pastdagi raqamlarni tekshiring."
+           data-en="These values are found via simple keyword matching — not guaranteed accurate for every statement format. Check the numbers below before applying.">These values are found via simple keyword matching — not guaranteed accurate for every statement format. Check the numbers below before applying.</div>
+      </div>
+    </div>
+
+    <div class="step-tag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10 L21 10"/><path d="M9 10 L9 20"/></svg><span data-uz="1-QADAM" data-en="STEP 1">STEP 1</span></div>
+    <div class="section-title" data-uz="So'nggi oylardagi haqiqiy raqamlar" data-en="Your recent actuals">Your recent actuals</div>
+    <p class="section-desc" data-uz="Bashorat taxmindan emas, haqiqiy tariхdan boshlanadi. Oxirgi 3-6 oyning daromad va xarajatini kiriting — tizim shu yerdan trendni o'zi chiqaradi."
+       data-en="A real forecast starts from real history, not a guess. Enter income and expenses for the last 3-6 months — the trend is computed from this, not assumed.">A real forecast starts from real history, not a guess. Enter income and expenses for the last 3-6 months — the trend is computed from this, not assumed.</p>
+
+    <div class="card" style="margin-bottom:28px;">
+      <div class="history-head">
+        <span data-uz="OY" data-en="MONTH">MONTH</span>
+        <span data-uz="DAROMAD" data-en="INCOME">INCOME</span>
+        <span data-uz="XARAJAT" data-en="EXPENSE">EXPENSE</span>
+        <span></span>
+      </div>
+      <div class="history-table" id="historyTable"></div>
+      <button class="add-row-btn" id="addMonthBtn" onclick="addMonthRow()" data-uz="+ OY QO'SHISH (MAX 6)" data-en="+ ADD MONTH (MAX 6)">+ ADD MONTH (MAX 6)</button>
+    </div>
+
+    <div class="step-tag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7 L20 7"/><circle cx="9" cy="7" r="2"/><path d="M4 17 L20 17"/><circle cx="15" cy="17" r="2"/></svg><span data-uz="2-QADAM" data-en="STEP 2">STEP 2</span></div>
+    <div class="section-title" data-uz="Tarkib va parametrlar" data-en="Structure and parameters">Structure and parameters</div>
+    <p class="section-desc" data-uz="Qat'iy xarajatlar (ijara, ish haqi, kredit to'lovi) — breakeven nuqtasini hisoblash uchun kerak. Mijoz konsentratsiyasi — rискни ko'rsatadi."
+       data-en="Fixed costs (rent, salaries, loan payments) are needed to calculate your break-even point. Customer concentration flags revenue risk.">Fixed costs (rent, salaries, loan payments) are needed to calculate your break-even point. Customer concentration flags revenue risk.</p>
+
+    <div class="card" style="margin-bottom:28px;">
+      <div class="row3">
+        <div class="field">
+          <label data-uz="Joriy kassa balansi" data-en="Current cash balance">Current cash balance</label>
+          <input type="number" id="startBalance" value="45000000" />
+        </div>
+        <div class="field">
+          <label data-uz="Oylik qat'iy xarajat" data-en="Monthly fixed costs">Monthly fixed costs</label>
+          <input type="number" id="fixedCost" value="25000000" />
+        </div>
+        <div class="field">
+          <label data-uz="Eng katta mijoz ulushi (%)" data-en="Largest customer share (%)">Largest customer share (%)</label>
+          <input type="number" id="concentration" value="35" min="0" max="100" />
+        </div>
+      </div>
+      <div class="field">
+        <label data-uz="Bashorat muddati (oy)" data-en="Forecast horizon (months)">Forecast horizon (months)</label>
+        <input type="number" id="horizon" value="9" min="3" max="24" />
+      </div>
+      <div class="field">
+        <label data-uz="Bir martalik kirim/chiqimlar" data-en="One-off entries">One-off entries</label>
+        <div id="onetimeList" style="margin-bottom:10px;"></div>
+        <button class="add-row-btn" onclick="addOnetimeRow()" data-uz="+ QATOR QO'SHISH" data-en="+ ADD ENTRY">+ ADD ENTRY</button>
+      </div>
+    </div>
+
+    <div class="step-tag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 20 L6 10"/><path d="M12 20 L12 4"/><path d="M18 20 L18 14"/></svg><span data-uz="3-QADAM" data-en="STEP 3">STEP 3</span></div>
+    <div class="section-title" data-uz="Stsenariy va tahlil" data-en="Scenario and analysis">Scenario and analysis</div>
+    <p class="section-desc" data-uz="Bitta raqamga ishonmang. Optimistik, asosiy va pessimistik holatlarni solishtiring."
+       data-en="Don't trust a single number. Compare the optimistic, base, and pessimistic case.">Don't trust a single number. Compare the optimistic, base, and pessimistic case.</p>
+
+    <div class="card">
+      <div class="scenario-row">
+        <button class="scenario-btn" id="scn-optimistic" onclick="setScenario('optimistic')" data-uz="OPTIMISTIK +15%" data-en="OPTIMISTIC +15%">OPTIMISTIC +15%</button>
+        <button class="scenario-btn active" id="scn-base" onclick="setScenario('base')" data-uz="ASOSIY" data-en="BASE">BASE</button>
+        <button class="scenario-btn" id="scn-pessimistic" onclick="setScenario('pessimistic')" data-uz="PESSIMISTIK -15%" data-en="PESSIMISTIC -15%">PESSIMISTIC -15%</button>
+      </div>
+      <button class="btn-primary" onclick="runForecast()" data-uz="TAHLIL QILISH" data-en="RUN ANALYSIS">RUN ANALYSIS</button>
+      <button class="btn-secondary" onclick="saveScenario()" data-uz="Stsenariyni saqlash" data-en="Save scenario">Save scenario</button>
+      <button class="btn-secondary" onclick="loadScenario()" data-uz="Saqlanganini yuklash" data-en="Load saved scenario">Load saved scenario</button>
+      <div id="saveMsg" style="font-size:11px;color:var(--green);margin-top:8px;height:14px;"></div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="step-tag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12 L8 12 L11 5 L14 19 L17 12 L21 12"/></svg><span data-uz="NATIJA" data-en="RESULT">RESULT</span></div>
+    <div class="section-title" data-uz="Tahlil va tavsiyalar" data-en="Analysis and recommendations">Analysis and recommendations</div>
+
+    <div id="emptyResults" class="empty-state" data-uz="Yuqoridagi ma'lumotlarni to'ldirib, 'Tahlil qilish' tugmasini bosing." data-en="Fill in the data above and press 'Run Analysis'.">Fill in the data above and press 'Run Analysis'.</div>
+
+    <div id="resultsContent" style="display:none;">
+      <div class="results-grid">
+        <div class="card">
+          <div class="status-pill" id="statusPill"></div>
+          <div class="verdict">
+            <div class="big-num" id="runwayNum">—</div>
+            <div class="label" id="runwayLabel"></div>
+          </div>
+          <svg class="chart" id="chartSvg" viewBox="0 0 560 190"></svg>
+          <div class="legend">
+            <span><i style="background:var(--amber)"></i><span data-uz="Balans" data-en="Balance">Balance</span></span>
+            <span><i style="background:var(--red)"></i><span data-uz="Xavf chizig'i (0)" data-en="Danger line (0)">Danger line (0)</span></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="metric-row">
+            <span class="m-label" data-uz="Daromad trendi (oyiga)" data-en="Income trend (per month)">Income trend (per month)</span>
+            <span class="m-val" id="metricIncomeTrend">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="m-label" data-uz="Xarajat trendi (oyiga)" data-en="Expense trend (per month)">Expense trend (per month)</span>
+            <span class="m-val" id="metricExpenseTrend">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="m-label" data-uz="Qat'iy xarajat ulushi" data-en="Fixed cost ratio">Fixed cost ratio</span>
+            <span class="m-bar-wrap">
+              <span class="m-bar-track"><span class="m-bar-fill" id="barFixedRatio" style="width:0%"></span></span>
+              <span class="m-val" id="metricFixedRatio">—</span>
+            </span>
+          </div>
+          <div class="metric-row">
+            <span class="m-label" data-uz="Breakeven daromad" data-en="Break-even revenue">Break-even revenue</span>
+            <span class="m-val" id="metricBreakeven">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="m-label" data-uz="Joriy oylik daromad" data-en="Current monthly income">Current monthly income</span>
+            <span class="m-val" id="metricCurrentIncome">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="m-label" data-uz="Mijoz konsentratsiyasi" data-en="Customer concentration">Customer concentration</span>
+            <span class="m-bar-wrap">
+              <span class="m-bar-track"><span class="m-bar-fill" id="barConcentration" style="width:0%"></span></span>
+              <span class="m-val" id="metricConcentration">—</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;">
+        <ul class="recs-list" id="recsList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title" data-uz="Ikkinchi fikr kerakmi?" data-en="Want a second opinion?">Want a second opinion?</div>
+    <p class="section-desc" data-uz="Bu tahlil sizga umumiy yo'nalish beradi, lekin har bir biznes o'ziga xos. Agar raqamlaringizni odam bilan muhokama qilishni xohlasangiz, qisqacha yozib qoldiring."
+       data-en="This analysis gives you direction, but every business is different. If you'd like to talk your numbers through with a person, leave a short note.">This analysis gives you direction, but every business is different. If you'd like to talk your numbers through with a person, leave a short note.</p>
+    <div class="card contact-card">
+      <div class="field">
+        <label data-uz="Ismingiz" data-en="Your name">Your name</label>
+        <input type="text" id="contactName" placeholder="Full Name" />
+      </div>
+      <div class="field">
+        <label data-uz="Email" data-en="Email">Email</label>
+        <input type="email" id="contactEmail" placeholder="email@example.com" />
+      </div>
+      <div class="field">
+        <label data-uz="Qisqacha izoh" data-en="Short note">Short note</label>
+        <textarea id="contactNote" placeholder="1-2 sentences about your business..."></textarea>
+      </div>
+      <button class="btn-primary" onclick="sendContact()" data-uz="YUBORISH" data-en="SEND">SEND</button>
+      <div class="contact-note" data-uz="Bu sizning email ilovangizni Jasurbekka to'g'ridan-to'g'ri xabar yuborish uchun ochadi. Hozircha avtomatik jadval yo'q — shaxsan javob beraman."
+         data-en="This opens your email app to send a message directly to Jasurbek. There's no automated scheduling yet — replies are handled personally.">This opens your email app to send a message directly to Jasurbek. There's no automated scheduling yet — replies are handled personally.</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="bottom-strip">Oqim 2026 · Built by <a href="https://jasurbekturaev.me" target="_blank" rel="noopener">jasurbekturaev.me</a></div>
+
+<script>
+let lang = 'en';
+let scenario = 'base';
+
+let monthsData = [
+  {label:"March", income: 34000000, expense: 39000000},
+  {label:"April", income: 36000000, expense: 41000000},
+  {label:"May", income: 37500000, expense: 43000000},
+  {label:"June", income: 38000000, expense: 44000000}
+];
+
+let onetimeRows = [
+  {month: 2, label: "Tax payment", amount: -6000000},
+  {month: 5, label: "Supplier contract", amount: 4500000}
+];
+
+const CONTACT_EMAIL = "jasurbek.turaev@example.com"; // TODO: replace with real address before deploying
+
+function setLang(l){
+  lang = l;
+  document.querySelectorAll('[data-uz]').forEach(el=>{
+    el.textContent = el.getAttribute('data-'+l);
+  });
+  renderHistoryTable();
+  renderOnetimeRows();
+}
+
+function setScenario(s){
+  scenario = s;
+  ['optimistic','base','pessimistic'].forEach(name=>{
+    document.getElementById('scn-'+name).classList.toggle('active', name===s);
+  });
+  if(document.getElementById('resultsContent').style.display !== 'none'){
+    runForecast();
+  }
+}
+
+/* ===== HISTORY TABLE ===== */
+function renderHistoryTable(){
+  const table = document.getElementById('historyTable');
+  table.innerHTML = '';
+  monthsData.forEach((row, i)=>{
+    const div = document.createElement('div');
+    div.className = 'history-row';
+    div.innerHTML = `
+      <input type="text" value="${row.label}" oninput="monthsData[${i}].label=this.value">
+      <input type="number" value="${row.income}" oninput="monthsData[${i}].income=parseFloat(this.value)||0">
+      <input type="number" value="${row.expense}" oninput="monthsData[${i}].expense=parseFloat(this.value)||0">
+      <button class="remove-btn" onclick="removeMonthRow(${i})" ${monthsData.length<=3?'disabled':''}>×</button>
+    `;
+    table.appendChild(div);
+  });
+  document.getElementById('addMonthBtn').disabled = monthsData.length >= 6;
+}
+function addMonthRow(){
+  if(monthsData.length >= 6) return;
+  monthsData.push({label:'', income:0, expense:0});
+  renderHistoryTable();
+}
+function removeMonthRow(i){
+  if(monthsData.length <= 3) return;
+  monthsData.splice(i,1);
+  renderHistoryTable();
+}
+
+/* ===== ONE-OFF ROWS ===== */
+function renderOnetimeRows(){
+  const list = document.getElementById('onetimeList');
+  list.innerHTML = '';
+  onetimeRows.forEach((row, i)=>{
+    const div = document.createElement('div');
+    div.className = 'history-row';
+    div.style.gridTemplateColumns = '1.2fr 0.8fr 1fr auto';
+    div.style.marginBottom = '8px';
+    div.innerHTML = `
+      <input type="text" placeholder="${lang==='uz'?'Izoh':'Label'}" value="${row.label}" oninput="onetimeRows[${i}].label=this.value">
+      <input type="number" placeholder="${lang==='uz'?'Oy raqami':'Month #'}" value="${row.month}" oninput="onetimeRows[${i}].month=parseInt(this.value)||0">
+      <input type="number" placeholder="${lang==='uz'?'Summa (+/-)':'Amount (+/-)'}" value="${row.amount}" oninput="onetimeRows[${i}].amount=parseFloat(this.value)||0">
+      <button class="remove-btn" onclick="removeOnetimeRow(${i})">×</button>
+    `;
+    list.appendChild(div);
+  });
+}
+function addOnetimeRow(){
+  onetimeRows.push({month:1, label:'', amount:0});
+  renderOnetimeRows();
+}
+function removeOnetimeRow(i){
+  onetimeRows.splice(i,1);
+  renderOnetimeRows();
+}
+
+/* ===== STATEMENT UPLOAD & EXTRACTION ===== */
+let extractedData = { income: null, balance: null, cashflow: null };
+
+const KEYWORD_MAP = {
+  income: {
+    revenue: ["daromad","tushum","savdo hajmi","sotuvdan tushgan","revenue","sales","income"],
+    expense: ["jami xarajat","xarajatlar jami","umumiy xarajat","total expense","total cost","expenses"]
+  },
+  balance: {
+    cash: ["naqd pul","kassa","bank hisobi","cash and equivalents","cash"],
+    assets: ["jami aktiv","aktivlar jami","total assets"],
+    liabilities: ["jami majburiyat","majburiyatlar jami","qarzlar jami","total liabilities","liabilities"]
+  },
+  cashflow: {
+    ending: ["davr oxiridagi naqd pul","yakunidagi naqd pul","ending cash","cash at end","cash and cash equivalents at end"],
+    operating: ["operatsion faoliyatdan","asosiy faoliyatdan","operating activities","cash from operations"]
+  }
+};
+
+function normalizeLabel(s){
+  return String(s).toLowerCase().replace(/['ʻ’`]/g,"'").trim();
+}
+
+function parseNumberFromCell(v){
+  if(typeof v === 'number') return v;
+  if(typeof v !== 'string') return null;
+  const cleaned = v.replace(/[^0-9.\-]/g,'');
+  if(cleaned === '' || cleaned === '-') return null;
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? null : n;
+}
+
+function findRowValue(rows, keywords){
+  for(const row of rows){
+    if(!row || !row.length) continue;
+    const label = normalizeLabel(row[0]);
+    if(!label) continue;
+    if(keywords.some(k => label.includes(k))){
+      for(let i = row.length - 1; i >= 1; i--){
+        const n = parseNumberFromCell(row[i]);
+        if(n !== null) return { value: n, sourceLabel: row[0] };
+      }
+    }
+  }
+  return null;
+}
+
+function readFileAsRows(file, callback){
+  const reader = new FileReader();
+  const isCSV = /\.csv$/i.test(file.name);
+  reader.onload = function(e){
+    try{
+      const workbook = isCSV
+        ? XLSX.read(e.target.result, {type:'string'})
+        : XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+      callback(rows);
+    }catch(err){
+      console.error('Parse error', err);
+      callback(null);
+    }
+  };
+  if(isCSV) reader.readAsText(file); else reader.readAsArrayBuffer(file);
+}
+
+function handleFileUpload(input, kind){
+  const file = input.files[0];
+  if(!file) return;
+  document.getElementById('filename-'+kind).textContent = file.name;
+  document.getElementById('slot-'+kind).classList.add('filled');
+
+  readFileAsRows(file, function(rows){
+    if(!rows){
+      extractedData[kind] = { error: true };
+      renderExtractCard(kind);
+      return;
+    }
+    const map = KEYWORD_MAP[kind];
+    const found = {};
+    Object.keys(map).forEach(key=>{
+      found[key] = findRowValue(rows, map[key]);
+    });
+    extractedData[kind] = found;
+    renderExtractCard(kind);
+    document.getElementById('extractPreview').style.display = 'block';
+  });
+}
+
+const FIELD_LABELS = {
+  revenue: {uz:"Daromad", en:"Revenue"},
+  expense: {uz:"Jami xarajat", en:"Total expenses"},
+  cash: {uz:"Naqd pul", en:"Cash"},
+  assets: {uz:"Jami aktiv", en:"Total assets"},
+  liabilities: {uz:"Jami majburiyat", en:"Total liabilities"},
+  ending: {uz:"Davr oxiridagi naqd pul", en:"Ending cash balance"},
+  operating: {uz:"Operatsion pul oqimi", en:"Operating cash flow"}
+};
+const CARD_TITLES = {
+  income: {uz:"Daromadlar hisoboti", en:"Income statement"},
+  balance: {uz:"Balans hisoboti", en:"Balance sheet"},
+  cashflow: {uz:"Pul oqimi hisoboti", en:"Cash flow statement"}
+};
+
+function renderExtractCard(kind){
+  const cardId = 'extractCard' + kind.charAt(0).toUpperCase() + kind.slice(1);
+  const card = document.getElementById(cardId);
+  const data = extractedData[kind];
+  card.style.display = 'block';
+  card.innerHTML = '';
+
+  const h4 = document.createElement('h4');
+  h4.textContent = CARD_TITLES[kind][lang];
+  card.appendChild(h4);
+
+  if(data && data.error){
+    const p = document.createElement('div');
+    p.className = 'extract-row';
+    p.innerHTML = `<span class="e-label">${lang==='uz'?'Faylni o\'qib bo\'lmadi':'Could not read file'}</span>`;
+    card.appendChild(p);
+    return;
+  }
+
+  Object.keys(data).forEach(key=>{
+    const row = document.createElement('div');
+    row.className = 'extract-row';
+    const result = data[key];
+    row.innerHTML = `
+      <span class="e-label">${FIELD_LABELS[key][lang]}</span>
+      <span class="${result ? 'e-val' : 'e-val missing'}">
+        ${result ? fmt(result.value) + " UZS" : (lang==='uz'?"Topilmadi":"Not found")}
+        ${result ? `<span class="e-source">${lang==='uz'?'Manba qatori':'Source row'}: "${result.sourceLabel}"</span>` : ''}
+      </span>
+    `;
+    card.appendChild(row);
+  });
+}
+
+function applyExtractedData(){
+  const income = extractedData.income;
+  const balance = extractedData.balance;
+  const cashflow = extractedData.cashflow;
+
+  if(income && income.revenue && income.expense){
+    const lastIdx = monthsData.length - 1;
+    monthsData[lastIdx] = {
+      label: lang==='uz' ? "Yuklangan" : "Uploaded",
+      income: income.revenue.value,
+      expense: income.expense.value
+    };
+    renderHistoryTable();
+  }
+
+  let cashValue = null;
+  if(balance && balance.cash) cashValue = balance.cash.value;
+  else if(cashflow && cashflow.ending) cashValue = cashflow.ending.value;
+  if(cashValue !== null){
+    document.getElementById('startBalance').value = cashValue;
+  }
+
+  const msg = document.getElementById('saveMsg');
+  msg.textContent = lang==='uz' ? "Qo'llandi ✓ — pastdagi raqamlarni tekshiring" : "Applied ✓ — please verify the numbers below";
+  setTimeout(()=>{msg.textContent='';}, 4000);
+}
+
+/* ===== ANALYSIS CORE ===== */
+function avgDelta(arr){
+  if(arr.length < 2) return 0;
+  let deltas = [];
+  for(let i=1;i<arr.length;i++) deltas.push(arr[i]-arr[i-1]);
+  return deltas.reduce((s,v)=>s+v,0) / deltas.length;
+}
+
+function fmt(n){
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  if(abs >= 1000000) return sign + (abs/1000000).toFixed(1) + 'M';
+  if(abs >= 1000) return sign + (abs/1000).toFixed(0) + 'K';
+  return sign + abs.toFixed(0);
+}
+
+function runForecast(){
+  const incomes = monthsData.map(m=>m.income);
+  const expenses = monthsData.map(m=>m.expense);
+  const lastIncome = incomes[incomes.length-1];
+  const lastExpense = expenses[expenses.length-1];
+  const incomeTrend = avgDelta(incomes);
+  const expenseTrend = avgDelta(expenses);
+
+  const startBalance = parseFloat(document.getElementById('startBalance').value) || 0;
+  const fixedCost = parseFloat(document.getElementById('fixedCost').value) || 0;
+  const concentration = parseFloat(document.getElementById('concentration').value) || 0;
+  const horizon = Math.max(3, Math.min(24, parseInt(document.getElementById('horizon').value) || 9));
+
+  const scenarioFactor = scenario === 'optimistic' ? 1.15 : (scenario === 'pessimistic' ? 0.85 : 1.0);
+
+  // project balances forward
+  let balances = [startBalance];
+  let bal = startBalance;
+  let dangerMonth = null;
+
+  for(let m=1; m<=horizon; m++){
+    const projIncome = (lastIncome + incomeTrend*m) * scenarioFactor;
+    const projExpense = lastExpense + expenseTrend*m;
+    const net = projIncome - projExpense;
+    bal += net;
+    const oneOffs = onetimeRows.filter(r=>r.month===m).reduce((s,r)=>s+r.amount,0);
+    bal += oneOffs;
+    balances.push(bal);
+    if(dangerMonth === null && bal < 0) dangerMonth = m;
+  }
+
+  let runwayMonth = null;
+  const expenseBuffer = Math.max(lastExpense, 1);
+  for(let m=1; m<balances.length; m++){
+    if(balances[m] < expenseBuffer){ runwayMonth = m; break; }
+  }
+
+  // break-even
+  const variableCost = Math.max(lastExpense - fixedCost, 0);
+  const variableCostRatio = lastIncome > 0 ? Math.min(variableCost / lastIncome, 0.95) : 0.95;
+  const breakEvenRevenue = fixedCost / (1 - variableCostRatio);
+  const fixedRatio = lastExpense > 0 ? fixedCost / lastExpense : 0;
+
+  renderVerdict(dangerMonth, runwayMonth);
+  drawChart(balances);
+  renderMetrics(incomeTrend, expenseTrend, fixedRatio, breakEvenRevenue, lastIncome, concentration);
+  renderRecommendations({incomeTrend, expenseTrend, fixedRatio, breakEvenRevenue, lastIncome, concentration, dangerMonth, runwayMonth});
+
+  document.getElementById('emptyResults').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'block';
+}
+
+function animateCountUp(el, target, suffix){
+  const duration = 700;
+  const start = performance.now();
+  function tick(now){
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(target * eased);
+    el.textContent = current + suffix;
+    if(progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderVerdict(dangerMonth, runwayMonth){
+  const pill = document.getElementById('statusPill');
+  const num = document.getElementById('runwayNum');
+  const label = document.getElementById('runwayLabel');
+
+  if(dangerMonth !== null){
+    pill.className = 'status-pill danger';
+    pill.textContent = lang==='uz' ? 'XAVFLI HOLAT' : 'DANGER ZONE';
+    num.className = 'big-num danger';
+    animateCountUp(num, dangerMonth, lang==='uz' ? '-oy' : ' mo');
+    label.textContent = lang==='uz'
+      ? `${dangerMonth}-oyda balansingiz manfiy bo'lishi kutilmoqda.`
+      : `Your balance is projected to go negative in month ${dangerMonth}.`;
+  } else if(runwayMonth !== null){
+    pill.className = 'status-pill warn';
+    pill.textContent = lang==='uz' ? 'OGOHLANTIRISH' : 'WARNING';
+    num.className = 'big-num';
+    num.style.color = 'var(--amber)';
+    animateCountUp(num, runwayMonth, lang==='uz' ? '-oy' : ' mo');
+    label.textContent = lang==='uz'
+      ? `${runwayMonth}-oyda zaxirangiz bir oylik xarajatdan kam bo'lib qoladi.`
+      : `By month ${runwayMonth}, your buffer drops below one month of expenses.`;
+  } else {
+    pill.className = 'status-pill safe';
+    pill.textContent = lang==='uz' ? "BARQAROR" : 'STABLE';
+    num.className = 'big-num safe';
+    num.textContent = '✓';
+    label.textContent = lang==='uz'
+      ? `Tanlangan davr uchun naqd pul oqimingiz barqaror.`
+      : `Your cash flow stays stable across the selected horizon.`;
+  }
+}
+
+function renderMetrics(incomeTrend, expenseTrend, fixedRatio, breakEvenRevenue, lastIncome, concentration){
+  document.getElementById('metricIncomeTrend').textContent = (incomeTrend>=0?'+':'') + fmt(incomeTrend) + " UZS";
+  document.getElementById('metricIncomeTrend').className = 'm-val ' + (incomeTrend>=0?'ok':'flag');
+
+  document.getElementById('metricExpenseTrend').textContent = (expenseTrend>=0?'+':'') + fmt(expenseTrend) + " UZS";
+  document.getElementById('metricExpenseTrend').className = 'm-val ' + (expenseTrend>incomeTrend?'flag':'ok');
+
+  document.getElementById('metricFixedRatio').textContent = (fixedRatio*100).toFixed(0) + '%';
+  document.getElementById('metricFixedRatio').className = 'm-val ' + (fixedRatio>0.65?'flag':'');
+  document.getElementById('barFixedRatio').style.width = Math.min(fixedRatio*100,100) + '%';
+  document.getElementById('barFixedRatio').style.background = fixedRatio>0.65 ? 'var(--red)' : 'var(--amber)';
+
+  document.getElementById('metricBreakeven').textContent = fmt(breakEvenRevenue) + " UZS";
+
+  document.getElementById('metricCurrentIncome').textContent = fmt(lastIncome) + " UZS";
+  document.getElementById('metricCurrentIncome').className = 'm-val ' + (lastIncome < breakEvenRevenue ? 'flag' : 'ok');
+
+  document.getElementById('metricConcentration').textContent = concentration.toFixed(0) + '%';
+  document.getElementById('metricConcentration').className = 'm-val ' + (concentration>=30?'flag':'');
+  document.getElementById('barConcentration').style.width = Math.min(concentration,100) + '%';
+  document.getElementById('barConcentration').style.background = concentration>=30 ? 'var(--red)' : 'var(--amber)';
+}
+
+function renderRecommendations(d){
+  const recs = [];
+
+  if(d.expenseTrend > d.incomeTrend){
+    const gap = d.expenseTrend - d.incomeTrend;
+    recs.push({
+      flag: true,
+      uz: `Xarajatlaringiz daromadingizdan tezroq o'sib bormoqda — farq oyiga taxminan ${fmt(gap)} so'mga kengayadi. Agar bu trend davom etsa, hozir barqaror ko'rinish ham tez orada yo'qoladi.`,
+      en: `Your expenses are growing faster than your income — the gap is widening by roughly ${fmt(gap)} per month. If this trend continues, today's stability won't last.`
+    });
+  } else {
+    recs.push({
+      flag: false,
+      uz: `Daromadingiz xarajatdan tezroq o'sayapti — bu yaxshi belgi, lekin trendni har oy qayta tekshirib turing.`,
+      en: `Your income is growing faster than expenses — a healthy sign, but worth re-checking the trend monthly.`
+    });
+  }
+
+  if(d.fixedRatio > 0.65){
+    recs.push({
+      flag: true,
+      uz: `Xarajatlaringizning ${(d.fixedRatio*100).toFixed(0)}%i qat'iy (ijara, ish haqi, kredit). Bu sizni moslashuvdan mahrum qiladi — daromad tushganda kesish uchun joy kam qoladi. Ijara yoki kredit shartlarini qayta ko'rib chiqish foydali bo'lishi mumkin.`,
+      en: `${(d.fixedRatio*100).toFixed(0)}% of your costs are fixed (rent, salaries, loan payments). That leaves little room to cut when revenue drops. Renegotiating lease or loan terms may be worth exploring.`
+    });
+  }
+
+  if(d.lastIncome < d.breakEvenRevenue){
+    const gap = d.breakEvenRevenue - d.lastIncome;
+    recs.push({
+      flag: true,
+      uz: `Joriy daromadingiz breakeven darajadan ${fmt(gap)} so'm past — ya'ni hozirgi xarajat tarkibida foyda chiqarish uchun sotuvni oshirish kerak.`,
+      en: `Your current income is ${fmt(gap)} below your break-even revenue — meaning at this cost structure, you need higher sales to turn a profit.`
+    });
+  } else {
+    recs.push({
+      flag: false,
+      uz: `Joriy daromadingiz breakeven darajadan yuqori — bu sog'lom belgi.`,
+      en: `Your current income is above break-even — a healthy sign.`
+    });
+  }
+
+  if(d.concentration >= 30){
+    recs.push({
+      flag: true,
+      uz: `Daromadingizning ${d.concentration.toFixed(0)}%i bitta mijozga bog'liq. Agar shu mijoz to'lovni kechiktirsa yoki ketsa, kassa oqimingiz tezda buziladi — mijoz bazasini kengaytirish ustida o'ylab ko'ring.`,
+      en: `${d.concentration.toFixed(0)}% of your revenue depends on a single customer. If they pay late or leave, your cash flow breaks quickly — worth thinking about diversifying your customer base.`
+    });
+  }
+
+  if(d.dangerMonth !== null){
+    recs.push({
+      flag: true,
+      uz: `${d.dangerMonth}-oygacha xarajatlarni kamida shu oydagi kamomadga teng miqdorda qisqartirish yoki to'lovlarni kechiktirish kerak bo'ladi, aks holda balans manfiy bo'lib qoladi.`,
+      en: `Before month ${d.dangerMonth}, you'll need to cut costs or delay payments by roughly the size of that month's shortfall, or your balance goes negative.`
+    });
+  }
+
+  const list = document.getElementById('recsList');
+  list.innerHTML = '';
+  recs.forEach((r,i)=>{
+    const li = document.createElement('li');
+    li.className = r.flag ? 'flag' : 'ok';
+    li.style.animationDelay = (i * 0.08) + 's';
+    li.textContent = lang === 'uz' ? r.uz : r.en;
+    list.appendChild(li);
+  });
+}
+
+function drawChart(balances){
+  const svg = document.getElementById('chartSvg');
+  const w = 560, h = 190, padL = 50, padR = 10, padT = 16, padB = 24;
+  const innerW = w - padL - padR, innerH = h - padT - padB;
+
+  const accentHex = getComputedStyle(document.documentElement).getPropertyValue('--amber').trim();
+  const accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--amber-rgb').trim();
+
+  const maxVal = Math.max(...balances, 0);
+  const minVal = Math.min(...balances, 0);
+  const range = (maxVal - minVal) || 1;
+
+  const xStep = innerW / (balances.length - 1);
+  const yFor = v => padT + innerH - ((v - minVal) / range) * innerH;
+  const xFor = i => padL + i * xStep;
+
+  let path = '';
+  balances.forEach((v,i)=>{
+    path += (i===0 ? 'M' : 'L') + xFor(i).toFixed(1) + ',' + yFor(v).toFixed(1) + ' ';
+  });
+
+  const zeroY = yFor(0);
+
+  let svgContent = `
+    <line x1="${padL}" y1="${zeroY}" x2="${w-padR}" y2="${zeroY}" stroke="#C9492F" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+    <path d="${path}" fill="none" stroke="${accentHex}" stroke-width="2" style="filter:drop-shadow(0 0 3px rgba(${accentRgb},0.4))"/>
+  `;
+  balances.forEach((v,i)=>{
+    const color = v < 0 ? '#C9492F' : accentHex;
+    svgContent += `<circle cx="${xFor(i).toFixed(1)}" cy="${yFor(v).toFixed(1)}" r="2.6" fill="${color}"/>`;
+  });
+  svgContent += `<text x="${padL}" y="${h-6}" font-size="10" fill="#6E665A" font-family="JetBrains Mono">0</text>`;
+  svgContent += `<text x="${w-padR-30}" y="${h-6}" font-size="10" fill="#6E665A" font-family="JetBrains Mono">${balances.length-1}mo</text>`;
+
+  svg.innerHTML = svgContent;
+}
+
+/* ===== SAVE / LOAD ===== */
+async function saveScenario(){
+  const data = {
+    monthsData,
+    onetimeRows,
+    startBalance: document.getElementById('startBalance').value,
+    fixedCost: document.getElementById('fixedCost').value,
+    concentration: document.getElementById('concentration').value,
+    horizon: document.getElementById('horizon').value,
+    scenario
+  };
+  try{
+    await window.storage.set('oqim:scenario-v2', JSON.stringify(data), false);
+    const msg = document.getElementById('saveMsg');
+    msg.textContent = lang==='uz' ? 'Saqlandi ✓' : 'Saved ✓';
+    setTimeout(()=>{msg.textContent='';}, 2000);
+  }catch(e){
+    console.error('Storage error', e);
+  }
+}
+
+async function loadScenario(){
+  try{
+    const result = await window.storage.get('oqim:scenario-v2', false);
+    if(result && result.value){
+      const s = JSON.parse(result.value);
+      monthsData = s.monthsData || monthsData;
+      onetimeRows = s.onetimeRows || onetimeRows;
+      document.getElementById('startBalance').value = s.startBalance;
+      document.getElementById('fixedCost').value = s.fixedCost;
+      document.getElementById('concentration').value = s.concentration;
+      document.getElementById('horizon').value = s.horizon;
+      setScenario(s.scenario || 'base');
+      renderHistoryTable();
+      renderOnetimeRows();
+    }
+  }catch(e){
+    const msg = document.getElementById('saveMsg');
+    msg.textContent = lang==='uz' ? 'Saqlangan stsenariy topilmadi' : 'No saved scenario found';
+  }
+}
+
+/* ===== CONTACT ===== */
+function sendContact(){
+  const name = document.getElementById('contactName').value.trim();
+  const email = document.getElementById('contactEmail').value.trim();
+  const note = document.getElementById('contactNote').value.trim();
+  const subject = encodeURIComponent("Oqim - second opinion request");
+  const body = encodeURIComponent(
+    `Name: ${name}\nEmail: ${email}\n\nNote:\n${note}`
+  );
+  window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+}
+
+setLang('en');
+
+const revealObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, {threshold:0.12});
+document.querySelectorAll('section').forEach(s => revealObserver.observe(s));
+
+/* ===== LIVE BACKGROUND: FULL-PAGE PULSE WAVEFORM ===== */
+(function(){
+  const canvas = document.getElementById('bgPulseCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // one EKG-style cycle, tiled infinitely
+  const template = [
+    [0,0],[36,0],[64,-14],[88,30],[108,-46],[128,52],[148,-10],[168,4],
+    [200,0],[236,0],[260,-22],[284,16],[304,-30],[324,8],[360,0],[400,0]
+  ];
+  const templateWidth = 400;
+
+  function drawLayer(yBase, amplitude, color, speed, glow, t){
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.3;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = glow;
+    ctx.beginPath();
+    const offset = -(t*speed) % templateWidth;
+    let started = false;
+    for(let startX = offset - templateWidth; startX < canvas.width + templateWidth; startX += templateWidth){
+      template.forEach(([px,py])=>{
+        const x = startX + px;
+        const y = yBase + py*amplitude;
+        if(!started){ ctx.moveTo(x,y); started = true; } else { ctx.lineTo(x,y); }
+      });
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function animate(t){
+    const rgb = getComputedStyle(document.documentElement).getPropertyValue('--amber-rgb').trim() || '217,164,65';
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawLayer(canvas.height*0.16, 0.55, `rgba(${rgb},0.30)`, 0.045, 9, t);
+    drawLayer(canvas.height*0.42, 0.7,  `rgba(${rgb},0.20)`, 0.028, 11, t + 1000);
+    drawLayer(canvas.height*0.68, 0.5,  `rgba(${rgb},0.26)`, 0.052, 7, t + 2000);
+    drawLayer(canvas.height*0.90, 0.62, `rgba(${rgb},0.16)`, 0.034, 9, t + 3000);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+})();
+
+/* ===== BOOT SEQUENCE ===== */
+(function(){
+  const overlay = document.getElementById('bootOverlay');
+  if(sessionStorage.getItem('oqimBooted')){
+    overlay.remove();
+    scrambleHeadline();
+    return;
+  }
+  const lines = [
+    "> oqim v1.0 ishga tushirilmoqda...",
+    "> bozor ma'lumotlari sinxronlanmoqda...",
+    "> naqd pul monitori faollashtirildi.",
+    "> tayyor."
+  ];
+  const el = document.getElementById('bootLines');
+  let i = 0;
+  function nextLine(){
+    if(i < lines.length){
+      const row = document.createElement('div');
+      row.textContent = lines[i];
+      if(i === lines.length - 1){
+        const cursor = document.createElement('span');
+        cursor.className = 'boot-cursor';
+        row.appendChild(cursor);
+      }
+      el.appendChild(row);
+      i++;
+      setTimeout(nextLine, 260);
+    } else {
+      setTimeout(()=>{
+        overlay.classList.add('hide');
+        sessionStorage.setItem('oqimBooted', '1');
+        scrambleHeadline();
+        setTimeout(()=> overlay.remove(), 600);
+      }, 450);
+    }
+  }
+  nextLine();
+})();
+
+/* ===== HEADLINE SCRAMBLE REVEAL ===== */
+function scrambleHeadline(){
+  const el = document.querySelector('h1');
+  if(!el || el.dataset.scrambled) return;
+  el.dataset.scrambled = '1';
+  const finalText = el.textContent;
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890#$%&";
+  const len = finalText.length;
+  const duration = 600;
+  const start = performance.now();
+  function frame(now){
+    const progress = Math.min((now - start) / duration, 1);
+    let out = '';
+    for(let i = 0; i < len; i++){
+      const charProgress = Math.min(Math.max((progress*len - i) / 3, 0), 1);
+      if(charProgress >= 1 || finalText[i] === ' ') out += finalText[i];
+      else out += chars[Math.floor(Math.random()*chars.length)];
+    }
+    el.textContent = out;
+    if(progress < 1) requestAnimationFrame(frame);
+    else el.textContent = finalText;
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ===== 3D CARD TILT ===== */
+document.querySelectorAll('.card').forEach(card=>{
+  card.addEventListener('mousemove', (e)=>{
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const cx = rect.width/2, cy = rect.height/2;
+    const rotateX = ((y - cy)/cy) * -3.5;
+    const rotateY = ((x - cx)/cx) * 3.5;
+    card.style.transition = 'none';
+    card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+  });
+  card.addEventListener('mouseleave', ()=>{
+    card.style.transition = 'transform .4s ease, border-color .2s, box-shadow .2s';
+    card.style.transform = 'perspective(800px) rotateX(0) rotateY(0)';
+  });
+});
+</script>
+</body>
+</html>
